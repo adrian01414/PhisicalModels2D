@@ -1,0 +1,53 @@
+#pragma kernel HeatDiffusion
+#pragma kernel AddHeat
+
+Texture2D<float> HeatInput;
+RWTexture2D<float> HeatOutput;
+float DiffusionRate;
+float CoolingRate;
+
+float2 BrushPosition;
+float BrushSize;
+float HeatIntensity;
+
+[numthreads(8, 8, 1)]
+void HeatDiffusion(uint3 id : SV_DispatchThreadID)
+{
+    uint width, height;
+    HeatInput.GetDimensions(width, height);
+    
+    if (id.x >= 1 && id.x < width - 1 && id.y >= 1 && id.y < height - 1)
+    {
+        float center = HeatInput[id.xy];
+        
+        float diffusion = HeatInput[uint2(id.x + 1, id.y)] +
+                         HeatInput[uint2(id.x - 1, id.y)] +
+                         HeatInput[uint2(id.x, id.y + 1)] +
+                         HeatInput[uint2(id.x, id.y - 1)] -
+                         4 * center;
+        
+        float newValue = center + DiffusionRate * diffusion - CoolingRate;
+        HeatOutput[id.xy] = max(0, newValue);
+    }
+    else
+    {
+        HeatOutput[id.xy] = 0;
+    }
+}
+
+[numthreads(8, 8, 1)]
+void AddHeat(uint3 id : SV_DispatchThreadID)
+{
+    uint width, height;
+    HeatOutput.GetDimensions(width, height);
+    
+    float2 pixelPos = float2(id.x, id.y);
+    float distanceToBrush = distance(pixelPos, BrushPosition);
+    
+    if (distanceToBrush <= BrushSize)
+    {
+        float falloff = 1.0 - distanceToBrush / BrushSize;
+        float currentHeat = HeatOutput[id.xy];
+        HeatOutput[id.xy] = min(1.0, currentHeat + HeatIntensity * falloff);
+    }
+}

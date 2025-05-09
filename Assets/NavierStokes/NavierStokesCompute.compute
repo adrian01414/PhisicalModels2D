@@ -1,0 +1,138 @@
+#pragma kernel Advect
+#pragma kernel Diffuse
+#pragma kernel Project
+#pragma kernel AddDensity
+#pragma kernel AddVelocity
+
+RWTexture2D<float4> Velocity;
+RWTexture2D<float4> PrevVelocity;
+RWTexture2D<float> Density;
+RWTexture2D<float> PrevDensity;
+RWTexture2D<float> Pressure;
+RWTexture2D<float> Divergence;
+
+Texture2D<float4> Obstacles;
+
+int TextureWidth;
+int TextureHeight;
+float DeltaTime;
+float Viscosity;
+float Diffusion;
+float Force;
+float Source;
+
+[numthreads(8, 8, 1)]
+void Advect(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= TextureWidth || id.y >= TextureHeight)
+        return;
+    
+    float2 uv = float2(id.x, id.y) / float2(TextureWidth, TextureHeight);
+    float2 vel = Velocity[id.xy].xy;
+    
+    // Trace back in time
+    float2 prevUV = uv - vel * DeltaTime;
+    prevUV = clamp(prevUV, 0, 1);
+    
+    // Sample previous values
+    float2 prevPos = prevUV * float2(TextureWidth, TextureHeight);
+    float4 prevVel = PrevVelocity[prevPos];
+    float prevDen = PrevDensity[prevPos];
+    
+    // Write new values
+    Velocity[id.xy] = prevVel;
+    Density[id.xy] = prevDen;
+}
+
+[numthreads(8, 8, 1)]
+void Diffuse(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= TextureWidth || id.y >= TextureHeight)
+        return;
+    
+    float4 vel = Velocity[id.xy];
+    float den = Density[id.xy];
+    
+    // Simple diffusion (Gaussian blur would be better)
+    float4 sumVel = 0;
+    float sumDen = 0;
+    int count = 0;
+    
+    for (int x = -1; x <= 1; x++)
+    {
+        for (int y = -1; y <= 1; y++)
+        {
+            int2 pos = id.xy + int2(x, y);
+            if (pos.x >= 0 && pos.x < TextureWidth && pos.y >= 0 && pos.y < TextureHeight)
+            {
+                sumVel += Velocity[pos];
+                sumDen += Density[pos];
+                count++;
+            }
+        }
+    }
+    
+    Velocity[id.xy] = lerp(vel, sumVel / count, Viscosity * DeltaTime);
+    Density[id.xy] = lerp(den, sumDen / count, Diffusion * DeltaTime);
+}
+
+[numthreads(8, 8, 1)]
+void Project(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= TextureWidth || id.y >= TextureHeight)
+        return;
+    
+    // Calculate divergence
+    float2 vel = Velocity[id.xy].xy;
+    float2 velRight = Velocity[id.xy + int2(1, 0)].xy;
+    float2 velTop = Velocity[id.xy + int2(0, 1)].xy;
+    
+    float div = (velRight.x - vel.x + velTop.y - vel.y) * 0.5;
+    Divergence[id.xy] = div;
+    
+    // Solve pressure (simplified Jacobi iteration)
+    float pressure = 0;
+    float sum = 0;
+    int count = 0;
+    
+    for (int x = -1; x <= 1; x++)
+    {
+        for (int y = -1; y <= 1; y++)
+        {
+            int2 pos = id.xy + int2(x, y);
+            if (pos.x >= 0 && pos.x < TextureWidth && pos.y >= 0 && pos.y < TextureHeight)
+            {
+                sum += Pressure[pos];
+                count++;
+            }
+        }
+    }
+    
+    Pressure[id.xy] = (sum - Divergence[id.xy]) / count;
+    
+    // Subtract pressure gradient from velocity
+    float p = Pressure[id.xy];
+    float pRight = Pressure[id.xy + int2(1, 0)];
+    float pTop = Pressure[id.xy + int2(0, 1)];
+    
+    vel.x -= (pRight - p) * 0.5;
+    vel.y -= (pTop - p) * 0.5;
+    
+    Velocity[id.xy] = float4(vel, 0, 1);
+}
+
+[numthreads(8, 8, 1)]
+void AddDensity(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= TextureWidth || id.y >= TextureHeight)
+        return;
+    Density[id.xy] += Source * DeltaTime;
+}
+
+[numthreads(8, 8, 1)]
+void AddVelocity(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x >= TextureWidth || id.y >= TextureHeight)
+        return;
+    Velocity[id.xy].xy += Force * DeltaTime;
+}
