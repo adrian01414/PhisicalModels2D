@@ -23,20 +23,18 @@ public class HeatController : MonoBehaviour
     private int addHeatKernel;
     private Texture2D displayTexture;
 
-    void Awake()
+    void OnEnable()
     {
         heatImage = GetComponent<RawImage>();
 
-        // Инициализация Render Textures с заданным разрешением
         heatRenderTexture = CreateRenderTexture(textureWidth, textureHeight);
         tempRenderTexture = CreateRenderTexture(textureWidth, textureHeight);
 
-        // Загрузка Compute Shader
         diffusionKernel = computeShader.FindKernel("HeatDiffusion");
         addHeatKernel = computeShader.FindKernel("AddHeat");
 
-        // Текстура для отображения
         displayTexture = new Texture2D(textureWidth, textureHeight, TextureFormat.RGBA32, false);
+        //displayTexture.filterMode = FilterMode.Point;
         heatImage.texture = displayTexture;
 
         ClearHeatMap();
@@ -50,13 +48,14 @@ public class HeatController : MonoBehaviour
         return rt;
     }
 
+    Vector2 mousePos;
+    Vector2 texturePos;
     void Update()
     {
         if (Input.GetMouseButton(0))
         {
-            // Конвертируем координаты мыши в координаты текстуры
-            Vector2 mousePos = new Vector2(Input.mousePosition.x, Input.mousePosition.y);
-            Vector2 texturePos = ConvertScreenToTextureCoords(mousePos);
+            mousePos = new Vector2(Input.mousePosition.x, Input.mousePosition.y);
+            texturePos = ConvertScreenToTextureCoords(mousePos);
             AddHeat(texturePos.x, texturePos.y);
         }
 
@@ -66,18 +65,15 @@ public class HeatController : MonoBehaviour
 
     Vector2 ConvertScreenToTextureCoords(Vector2 screenPos)
     {
-        // Конвертируем координаты экрана в координаты текстуры
         RectTransform rect = heatImage.rectTransform;
         Vector2 localPoint;
         RectTransformUtility.ScreenPointToLocalPointInRectangle(rect, screenPos, null, out localPoint);
 
-        // Нормализуем координаты (0-1)
         Vector2 normalized = new Vector2(
             (localPoint.x + rect.rect.width * 0.5f) / rect.rect.width,
             (localPoint.y + rect.rect.height * 0.5f) / rect.rect.height
         );
 
-        // Переводим в координаты текстуры
         return new Vector2(
             Mathf.Clamp(normalized.x * textureWidth, 0, textureWidth - 1),
             Mathf.Clamp(normalized.y * textureHeight, 0, textureHeight - 1)
