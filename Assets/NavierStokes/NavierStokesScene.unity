@@ -487,7 +487,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4bf1d8512712b24458b688894f460f38, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  resolution: 256
+  resolution: 512
   damping: 0.98
   diffusion: 0.01
   forceScale: 100

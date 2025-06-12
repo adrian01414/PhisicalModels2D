@@ -1,0 +1,83 @@
+#pragma kernel ThermalConductivityInit
+#pragma kernel ThermalConductivityStep
+#pragma kernel ThermalConductivitySwap
+
+RWStructuredBuffer<double> Grid;
+RWStructuredBuffer<double> NewGrid;
+RWStructuredBuffer<double> MaxDiff;
+
+int GridSize;
+float A;
+float Dt;
+
+groupshared double localMaxDiffs[16 * 16];
+
+[numthreads(16,16,1)]
+void ThermalConductivityInit (uint3 id : SV_DispatchThreadID)
+{
+    if (id.x == 1 && id.y == 1)
+    {
+        Grid[id.y * GridSize + id.x] = 1.0;
+        NewGrid[id.y * GridSize + id.x] = 1.0;
+    }
+    else if (id.x < GridSize && id.y < GridSize)
+    {
+        Grid[id.y * GridSize + id.x] = 0.0;
+        NewGrid[id.y * GridSize + id.x] = 0.0;
+    }
+}
+
+[numthreads(16, 16, 1)]
+void ThermalConductivityStep(uint3 id : SV_DispatchThreadID)
+{
+    int idx = id.y * GridSize + id.x;
+    int totalCells = GridSize * GridSize;
+    
+    double dx = 1.0 / (GridSize - 1);
+    
+    double r = A * Dt / (dx * dx);
+    
+    if (id.x > 0 && id.x < GridSize - 1 &&
+            id.y > 0 && id.y < GridSize - 1 &&
+            idx < totalCells)
+    {
+        NewGrid[idx] = Grid[idx] + r * (
+                Grid[(id.y - 1) * GridSize + id.x] +
+                Grid[(id.y + 1) * GridSize + id.x] +
+                Grid[id.y * GridSize + (id.x - 1)] +
+                Grid[id.y * GridSize + (id.x + 1)] -
+                4.0 * Grid[idx]);
+    }
+    DeviceMemoryBarrier();
+}
+
+[numthreads(16, 16, 1)]
+void ThermalConductivitySwap(uint3 id : SV_DispatchThreadID)
+{
+    if (id.x < GridSize && id.y < GridSize)
+    {
+        double diff = abs(Grid[id.y * GridSize + id.x] - NewGrid[id.y * GridSize + id.x]);
+        
+        uint localIdx = id.y * 16 + id.x;
+        localMaxDiffs[localIdx] = diff;
+        
+        for (uint stride = 16 * 16; stride > 0; stride >>= 1)
+        {
+            if (localIdx < stride)
+            {
+                localMaxDiffs[localIdx] = max(localMaxDiffs[localIdx], localMaxDiffs[localIdx + stride]);
+            }
+            
+        }
+        
+        if (localIdx == 0)
+        {
+            MaxDiff[0] = localMaxDiffs[0];
+        }
+        
+        double temp = Grid[id.y * GridSize + id.x];
+        Grid[id.y * GridSize + id.x] = NewGrid[id.y * GridSize + id.x];
+        NewGrid[id.y * GridSize + id.x] = temp;
+        DeviceMemoryBarrier();
+    }
+}
