@@ -1,0 +1,184 @@
+#pragma kernel Diffuse
+#pragma kernel LinearSolve
+#pragma kernel Project1
+#pragma kernel Project2
+#pragma kernel Advect
+#pragma kernel SetBoundary
+#pragma kernel AddSource
+
+RWStructuredBuffer<float> x;
+RWStructuredBuffer<float> x0;
+RWStructuredBuffer<float> d;
+RWStructuredBuffer<float> d0;
+RWStructuredBuffer<float> velocX;
+RWStructuredBuffer<float> velocY;
+RWStructuredBuffer<float> p;
+RWStructuredBuffer<float> div;
+RWStructuredBuffer<float> sourceField;
+RWStructuredBuffer<float> sourceField2;
+
+int resolution;
+int boundaryType;
+int sourceX;
+int sourceY;
+float dt;
+float viscosity;
+float diffusion;
+float a;
+float c;
+float sourceRadius;
+float sourceAmount;
+float sourceAmountX;
+float sourceAmountY;
+
+[numthreads(8, 8, 1)]
+void Diffuse(uint3 id : SV_DispatchThreadID)
+{
+    int i = id.x;
+    int j = id.y;
+    
+    if (i >= 1 && i < resolution - 1 && j >= 1 && j < resolution - 1)
+    {
+        int idx = i + j * resolution;
+        x[idx] = (x0[idx] + a * (x[idx - 1] + x[idx + 1] +
+                 x[idx - resolution] + x[idx + resolution])) / c;
+    }
+}
+
+[numthreads(8, 8, 1)]
+void LinearSolve(uint3 id : SV_DispatchThreadID)
+{
+    int i = id.x;
+    int j = id.y;
+    
+    if (i >= 1 && i < resolution - 1 && j >= 1 && j < resolution - 1)
+    {
+        int idx = i + j * resolution;
+        x[idx] = (x0[idx] + a * (x[idx - 1] + x[idx + 1] +
+                 x[idx - resolution] + x[idx + resolution])) / c;
+    }
+}
+
+[numthreads(8, 8, 1)]
+void Project1(uint3 id : SV_DispatchThreadID)
+{
+    int i = id.x;
+    int j = id.y;
+    
+    if (i >= 1 && i < resolution - 1 && j >= 1 && j < resolution - 1)
+    {
+        int idx = i + j * resolution;
+        div[idx] = -0.5f * (velocX[idx + 1] - velocX[idx - 1] +
+                  velocY[idx + resolution] - velocY[idx - resolution]) / resolution;
+        p[idx] = 0;
+    }
+}
+
+[numthreads(8, 8, 1)]
+void Project2(uint3 id : SV_DispatchThreadID)
+{
+    int i = id.x;
+    int j = id.y;
+    
+    if (i >= 1 && i < resolution - 1 && j >= 1 && j < resolution - 1)
+    {
+        int idx = i + j * resolution;
+        velocX[idx] -= 0.5f * (p[idx + 1] - p[idx - 1]) * resolution;
+        velocY[idx] -= 0.5f * (p[idx + resolution] - p[idx - resolution]) * resolution;
+    }
+}
+
+[numthreads(8, 8, 1)]
+void Advect(uint3 id : SV_DispatchThreadID)
+{
+    int i = id.x;
+    int j = id.y;
+    
+    if (i >= 1 && i < resolution - 1 && j >= 1 && j < resolution - 1)
+    {
+        int idx = i + j * resolution;
+
+        float xPos = i - dt * velocX[idx] * resolution;
+        float yPos = j - dt * velocY[idx] * resolution;
+
+        xPos = clamp(xPos, 0.5f, resolution - 1.5f);
+        yPos = clamp(yPos, 0.5f, resolution - 1.5f);
+
+        int i0 = (int) xPos;
+        int j0 = (int) yPos;
+        int i1 = i0 + 1;
+        int j1 = j0 + 1;
+
+        float s1 = xPos - i0;
+        float s0 = 1 - s1;
+        float t1 = yPos - j0;
+        float t0 = 1 - t1;
+
+        d[idx] = s0 * (t0 * d0[i0 + j0 * resolution] + t1 * d0[i0 + j1 * resolution]) +
+                 s1 * (t0 * d0[i1 + j0 * resolution] + t1 * d0[i1 + j1 * resolution]);
+    }
+}
+
+[numthreads(8, 8, 1)]
+void SetBoundary(uint3 id : SV_DispatchThreadID)
+{
+    int i = id.x;
+    int j = id.y;
+    
+    if (i == 0 || i == resolution - 1 || j == 0 || j == resolution - 1)
+    {
+        if (i >= 1 && i < resolution - 1)
+        {
+            x[i] = boundaryType == 1 ? -x[i + resolution] : x[i + resolution];
+            x[i + (resolution - 1) * resolution] = boundaryType == 1 ? -x[i + (resolution - 2) * resolution] : x[i + (resolution - 2) * resolution];
+        }
+
+        if (j >= 1 && j < resolution - 1)
+        {
+            x[j * resolution] = boundaryType == 2 ? -x[1 + j * resolution] : x[1 + j * resolution];
+            x[(resolution - 1) + j * resolution] = boundaryType == 2 ? -x[(resolution - 2) + j * resolution] : x[(resolution - 2) + j * resolution];
+        }
+
+        if (i == 0 && j == 0)
+        {
+            x[0] = 0.5f * (x[1] + x[resolution]);
+        }
+        if (i == resolution - 1 && j == 0)
+        {
+            x[(resolution - 1)] = 0.5f * (x[resolution - 2] + x[resolution * 2 - 1]);
+        }
+        if (i == 0 && j == resolution - 1)
+        {
+            x[(resolution - 1) * resolution] = 0.5f * (x[(resolution - 2) * resolution] + x[(resolution - 1) * resolution + 1]);
+        }
+        if (i == resolution - 1 && j == resolution - 1)
+        {
+            x[resolution * resolution - 1] = 0.5f * (x[resolution * resolution - 2] + x[(resolution - 1) * resolution - 1]);
+        }
+    }
+}
+
+[numthreads(8, 8, 1)]
+void AddSource(uint3 id : SV_DispatchThreadID)
+{
+    int i = id.x;
+    int j = id.y;
+    
+    int dx = i - sourceX;
+    int dy = j - sourceY;
+    float dist = sqrt(dx * dx + dy * dy);
+    
+    if (dist <= sourceRadius)
+    {
+        int idx = i + j * resolution;
+        float weight = 1 - dist / sourceRadius;
+        
+        sourceField[idx] += sourceAmount * weight;
+        
+        if (sourceAmountX != 0 || sourceAmountY != 0)
+        {
+            sourceField[idx] += sourceAmountX * weight;
+            sourceField2[idx] += sourceAmountY * weight;
+        }
+    }
+}

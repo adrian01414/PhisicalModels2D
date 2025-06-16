@@ -10,24 +10,25 @@ int GridSize;
 float A;
 float Dt;
 
-groupshared double localMaxDiffs[16 * 16];
+groupshared double localMaxDiffs[8 * 8];
 
-[numthreads(16,16,1)]
+[numthreads(8,8,1)]
 void ThermalConductivityInit (uint3 id : SV_DispatchThreadID)
 {
-    if (id.x == 1 && id.y == 1)
+    if ((id.y * GridSize + id.x) % 2 == 0)
     {
         Grid[id.y * GridSize + id.x] = 1.0;
         NewGrid[id.y * GridSize + id.x] = 1.0;
     }
-    else if (id.x < GridSize && id.y < GridSize)
+    else
     {
         Grid[id.y * GridSize + id.x] = 0.0;
         NewGrid[id.y * GridSize + id.x] = 0.0;
     }
+    DeviceMemoryBarrier();
 }
 
-[numthreads(16, 16, 1)]
+[numthreads(8, 8, 1)]
 void ThermalConductivityStep(uint3 id : SV_DispatchThreadID)
 {
     int idx = id.y * GridSize + id.x;
@@ -51,17 +52,17 @@ void ThermalConductivityStep(uint3 id : SV_DispatchThreadID)
     DeviceMemoryBarrier();
 }
 
-[numthreads(16, 16, 1)]
+[numthreads(8, 8, 1)]
 void ThermalConductivitySwap(uint3 id : SV_DispatchThreadID)
 {
     if (id.x < GridSize && id.y < GridSize)
     {
         double diff = abs(Grid[id.y * GridSize + id.x] - NewGrid[id.y * GridSize + id.x]);
         
-        uint localIdx = id.y * 16 + id.x;
+        uint localIdx = id.y * 8 + id.x;
         localMaxDiffs[localIdx] = diff;
         
-        for (uint stride = 16 * 16; stride > 0; stride >>= 1)
+        for (uint stride = 8 * 8; stride > 0; stride >>= 1)
         {
             if (localIdx < stride)
             {

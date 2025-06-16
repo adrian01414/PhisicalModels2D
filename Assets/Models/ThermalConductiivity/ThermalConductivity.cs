@@ -18,7 +18,15 @@ public class ThermalConductivity
         double dx = 1.0 / (nx - 1);
         double r = a * dt / (dx * dx);
 
-        newGrid[gridSize + 1] = grid[gridSize + 1] = 1;
+        for(int i = 0; i < gridSize * gridSize; i++)
+        {
+            if(i % 2 == 0){
+                newGrid[i] = grid[i] = 1;
+            } else
+            {
+                newGrid[i] = grid[i] = 0;
+            }
+        }
 
         iters = 0;
         while (true)
@@ -69,7 +77,7 @@ public class ThermalConductivity
         computeShader.SetBuffer(kernelInit, "Grid", gridBuffer);
         computeShader.SetBuffer(kernelInit, "NewGrid", newGridBuffer);
 
-        int threadGroups = Mathf.CeilToInt(gridSize / 16f);
+        int threadGroups = Mathf.CeilToInt(gridSize / 8f);
         computeShader.Dispatch(kernelInit, threadGroups, threadGroups, 1);
 
         //step

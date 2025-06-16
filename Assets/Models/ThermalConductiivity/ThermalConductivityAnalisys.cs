@@ -4,7 +4,7 @@ using UnityEngine;
 using static UnityEngine.Rendering.DebugUI.Table;
 using Debug = UnityEngine.Debug;
 
-public class NewMonoBehaviourScript : MonoBehaviour
+public class ThermalConductivityAnalisys : MonoBehaviour
 {
     public ComputeShader ComputeShader;
 
@@ -13,7 +13,7 @@ public class NewMonoBehaviourScript : MonoBehaviour
     void Start()
     {
         thermalConductivity = new ThermalConductivity();
-        int gridSize = 8192;
+        int gridSize = 1024;
 
         Stopwatch time = Stopwatch.StartNew();
         //thermalConductivity.ExecuteWithoutOptimization(gridSize, out double[] grid, out int iters);

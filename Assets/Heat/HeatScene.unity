@@ -452,19 +452,19 @@ MonoBehaviour:
   textureHeight: 512
   Gradient:
     serializedVersion: 2
-    key0: {r: 0, g: 0.17812467, b: 1, a: 1}
-    key1: {r: 0, g: 0.9642854, b: 1, a: 1}
-    key2: {r: 0.024262428, g: 1, b: 0, a: 0}
-    key3: {r: 1, g: 0.9831022, b: 0, a: 0}
-    key4: {r: 1, g: 0, b: 0, a: 0}
+    key0: {r: 0, g: 0, b: 0, a: 1}
+    key1: {r: 0.4745098, g: 0.03564037, b: 0, a: 1}
+    key2: {r: 1, g: 0.009313857, b: 0, a: 0}
+    key3: {r: 0, g: 0, b: 0, a: 0}
+    key4: {r: 0, g: 0, b: 0, a: 0}
     key5: {r: 0, g: 0, b: 0, a: 0}
     key6: {r: 0, g: 0, b: 0, a: 0}
     key7: {r: 0, g: 0, b: 0, a: 0}
     ctime0: 0
-    ctime1: 16577
-    ctime2: 32768
-    ctime3: 48766
-    ctime4: 65535
+    ctime1: 31033
+    ctime2: 65535
+    ctime3: 0
+    ctime4: 0
     ctime5: 0
     ctime6: 0
     ctime7: 0
@@ -478,12 +478,12 @@ MonoBehaviour:
     atime7: 0
     m_Mode: 0
     m_ColorSpace: -1
-    m_NumColorKeys: 5
+    m_NumColorKeys: 3
     m_NumAlphaKeys: 2
   brushSize: 50
   heatIntensity: 0.1
   diffusionRate: 0.05
-  coolingRate: 0.01
+  coolingRate: 0
   computeShader: {fileID: 7200000, guid: de26e309ca5b4694d9f5837b987cce40, type: 3}
 --- !u!1 &293598585
 GameObject:

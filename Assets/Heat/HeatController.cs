@@ -34,7 +34,6 @@ public class HeatController : MonoBehaviour
         addHeatKernel = computeShader.FindKernel("AddHeat");
 
         displayTexture = new Texture2D(textureWidth, textureHeight, TextureFormat.RGBA32, false);
-        //displayTexture.filterMode = FilterMode.Point;
         heatImage.texture = displayTexture;
 
         ClearHeatMap();
